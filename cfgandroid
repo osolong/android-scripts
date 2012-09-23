@@ -1,0 +1,303 @@
+#!/bin/bash
+#
+# Copyright 2012 Dextra Technologies.
+# Rafael Rodriguez.
+#
+# Configures a host PC. Will install the required packages
+# to build android.
+#
+# If you are building on ubuntu 12.04, patch android first, as per
+# the instructions at http://XXX
+#
+# After the script is completed, run fetch_sources.sh to download the code.
+
+latest_android_sdk=http://dl.google.com/android/android-sdk_r20.0.3-linux.tgz
+linkrepo=https://dl-ssl.google.com/dl/googlesource/git-repo/repo
+var=""
+libpath=""
+
+check_if_sudo () {
+	if [ -z "`env | grep "SUDO"`" ]; then
+		echo "Error: Must be run using sudo"
+		exit 50
+	fi
+}
+
+check_version () {
+	if [ ! -e /etc/lsb-release ]; then
+		echo "Error: lsb-release not found"
+		exit 1
+	else
+		os="`cat /etc/lsb-release | grep "DISTRIB_ID" | sed -e 's/^.*=//g'`"
+		if [ "${os}" != "Ubuntu" ]; then
+			echo "Error: Unsupported OS, please install Ubuntu 12.04"
+			exit 1
+		else
+			var="`cat /etc/lsb-release | grep "DISTRIB_RELEASE" | sed -e 's/^.*=//g'`"
+			if [ -z "${var}" ]; then
+				echo "Error: This script can only be run on Ubuntu"
+				exit 1
+			else
+				if [[ "${var}" != "12.04" ]]; then
+					echo "Error: Only Ubuntu 12.04 is supported"
+					exit 1
+				fi
+			fi
+		fi
+	fi
+}
+
+setup_tools () {
+	#erase all repo commands.
+	eval "`whereis repo | sed -e 's/repo:/sudo rm -rf/g'`"
+
+	need_path=0
+	for i in ${HOME}/bin /sbin /usr/sbin
+	do
+		if [ -z "`cat ${HOME}/.bashrc | grep "PATH" | grep "${i}"`" ]; then
+			let "need_path+=1"
+		fi
+	done
+	if [ ${need_path} -ne 0 ]; then
+		cat ${HOME}/.bashrc | sed -e 's/export PATH.*//g' > ${HOME}/.bashrc.tmp
+		mv ${HOME}/.bashrc.tmp ${HOME}/.bashrc
+		echo "export PATH=\"$PATH:${HOME}/bin:/sbin:/usr/sbin\"" >> ${HOME}/.bashrc
+		export PATH=${PATH}:${HOME}/bin:/sbin:/usr/sbin
+		if [[ $debug -ne 0 && debug_verbosity -ne 0 ]]; then
+			cat ${HOME}/.bashrc | sed -e 's/^/\t/g'
+		fi
+	fi
+}
+
+update_repo () {
+
+	cd ${HOME}/bin
+    curl ${linkrepo} > ~/bin/repo
+    chmod a+x ${HOME}/bin/repo
+}
+
+update_udev_rules () {
+	udev="/etc/udev/rules.d/51-android.rules"
+	for i in 0bb4 0403 18D1
+	do
+		if [ -e ${udev} ]; then
+			if [ -z "`cat ${udev} | grep "${i}"`" ]; then
+				echo "SUBSYSTEM==\"usb\", SYSFS{idVendor}==\"${i}\", MODE=\"0666\"" >> ${udev}
+			fi
+		else
+			echo "SUBSYSTEM==\"usb\", SYSFS{idVendor}==\"${i}\", MODE=\"0666\"" >> ${udev}
+		fi
+	done
+	return 0
+}
+
+reconfigure_sudo () {
+	# We need to modify sudo in such a way that PATH is not
+	# squashed
+	sudo cat /etc/sudoers | sed -e 's/Defaults.*/Defaults      !secure_path/g' -e 's/admin ALL=(ALL) ALL/admin ALL=NOPASSWD: ALL/g' > /etc/sudoers.n
+	if [ -e /etc/sudoers.n ]; then
+		mv /etc/sudoers.n /etc/sudoers
+		chmod 0440 /etc/sudoers
+	fi
+}
+
+install_android_tools_requirements () {
+	# Configure the sources.list:
+	if [ -z "`cat /etc/apt/sources.list | grep "hardy multiverse"`" ]; then
+		echo "" >> /etc/apt/sources.list
+		echo "deb http://us.archive.ubuntu.com/ubuntu/ hardy multiverse" >> /etc/apt/sources.list
+		apt-get update
+	fi
+
+	# Install the requirements for building android
+	pkgs="git-core \
+		gnupg 	\
+		flex 	\
+		bison 	\
+		gperf 	\
+		build-essential \
+		zip 	\
+		curl 	\
+		libc6-dev \
+		libncurses5-dev:i386 \
+		x11proto-core-dev \
+		libx11-dev:i386 \
+		libreadline6-dev:i386 \
+		libgl1-mesa-glx:i386 \
+  		libgl1-mesa-dev \
+		g++-multilib \
+		mingw32 \
+		openjdk-6-jdk \
+		tofrodos \
+		python-markdown \
+		libxml2-utils \
+		xsltproc \
+		zlib1g-dev:i386 \
+		sun-java6-jdk \
+		sun-java6-jre \
+		sun-java5-jdk \
+		sun-java5-jre \
+		cramfsprogs \
+		squashfs-tools \
+		eclipse \
+		uboot-mkimage \
+		gitk \
+		tftp-hpa \
+		indent \
+		multistrap \
+		netpbm \
+		tofrodos \
+		gawk \
+        chrpath \
+        quilt \
+        dpkg-dev \
+		debhelper \
+		autoconf \
+		libtool \
+		mercurial \
+		intltool \
+		vim \
+		vim-common \
+		vim-gnome \
+		vim-gui-common \
+		vim-runtime \
+		exuberant-ctags \
+		cscope "
+
+	mach="`uname -m`"
+	case $mach in
+		x86_64)
+			echo "x86_64 system found"
+			;;
+		*)
+			echo "Error: Invalid system type. Only x86_64 supported"
+			exit 8
+			;;
+	esac
+
+	# Prevent prompt for sun license
+	for i in java5-jre java5-jdk java6-jre java6-jdk
+	do
+		echo sun-${i} shared/accepted-sun-dlj-v1-1 select true | /usr/bin/debconf-set-selections
+	done
+
+	for i in $pkgs
+	do
+		apt-get -y install ${i}
+		if [ $? -ne 0 ]; then
+			echo "ERROR: Unable to install ${i}"
+			exit 2
+		fi
+	done
+
+	# Force javac from 1.6.0
+	update-java-alternatives --set java-6-sun > /dev/null 2>&1
+	update-alternatives --set java /usr/lib/jvm/java-6-sun/jre/bin/java > /dev/null 2>&1
+
+	# Download the Android SDK.
+	cd ${HOME}
+	if [ ! -e $HOME}/bin ]; then
+		mkdir -p ${HOME}/bin
+	fi
+	if [ ! -e ${HOME}/bin/android-sdk-linux ]; then
+		wget $latest_android_sdk -O android-sdk.tgz
+		if [ $? -ne 0 ]; then
+			echo "ERROR: Unable to download android-sdk_r20.0.3-linux"
+			exit 3
+		else
+			cd ${HOME}/bin
+			tar -zxf ${HOME}/android-sdk.tgz
+			if [ $? -ne 0 ]; then
+				echo "ERROR: Unable to extract android-sdk.tgz"
+				exit 4
+			else
+				#Only install tool and platform-tool
+				./android-sdk-linux/tools/android update sdk --no-ui --filter tool,platform-tool
+				for i in `ls android-sdk-linux/tools/`
+				do
+					if [ -x android-sdk-linux/tools/${i} ]; then
+						if [ -e ${i} ]; then
+							unlink ${i}
+						fi
+						if [[ "${i}" != *emulator* ]]; then
+							ln -s android-sdk-linux/tools/${i} ${i}
+							if [ $? -ne 0 ]; then
+								echo "ERROR: Unable to link to android-sdk-linux/tools/${i}"
+								exit 5
+							fi
+						fi
+					fi
+				done
+				for i in `ls android-sdk-linux/platform-tools/`
+				do
+					if [ -x android-sdk-linux/platform-tools/${i} ]; then
+						if [ -e ${i} ]; then
+							unlink ${i}
+						fi
+						if [[ "${i}" != *emulator* ]]; then
+							ln -s android-sdk-linux/platform-tools/${i} ${i}
+							if [ $? -ne 0 ]; then
+								echo "ERROR: Unable to link to android-sdk-linux/platform-tools/${i}"
+								exit 5
+							fi
+						fi
+					fi
+				done
+			fi
+			rm ${HOME}/android-sdk.tgz
+		fi
+	fi
+
+	# Configure the TFTP server
+	cat /etc/default/tftpd-hpa | sed -e 's/no/yes/g' -e 's+/var/lib/tftpboot+/tftproot+g' > /etc/default/tftpd-hpa.n
+	mv /etc/default/tftpd-hpa.n /etc/default/tftpd-hpa
+
+	# x86_64 also requires additional workarounds
+	# Different path for ubuntu 12.04
+	if [ "${var}" == "12.04" ]; then
+		libpath=/usr/lib/i386-linux-gnu
+	else
+		libpath=/usr/lib32
+	fi
+	if [ "${mach}" == "x86_64" ]; then
+		if [ ! -e /usr/lib/i386-linux-gnu/libX11.so ]; then
+			ln -s ${libpath}/libX11.so.6 ${libpath}/libX11.so
+		fi
+		if [ ! -e /usr/lib/i386-linux-gnu/libGL.so ]; then
+			ln -s ${libpath}/mesa/libGL.so.1 ${libpath}/libGL.so
+		fi
+		ln -s /usr/lib/jni/libswt-* ~/.swt/lib/linux/x86_64/
+	fi
+}
+
+fix_bin_permissions () {
+        chown -R ${SUDO_USER}:${SUDO_USER} ${HOME}/bin
+}
+
+increase_max_fds () {
+	if [ -z "`cat /etc/sysctl.conf | grep "fs.file-max"`" ]; then
+		echo "fs.file-max = 15000000" >> /etc/sysctl.conf
+	fi
+	sysctl -p /etc/sysctl.conf
+}
+
+sucess() {
+	echo "========================================================"
+	echo " Environment Setup Successful"
+	echo ""
+	echo " The required packages to build Android have been installed"
+	echo " SDK Tools have been copied to ${HOME}/bin"
+	echo ""
+	echo "========================================================"
+}
+
+check_if_sudo
+check_version
+reconfigure_sudo
+install_android_tools_requirements
+update_udev_rules
+increase_max_fds
+setup_tools
+update_repo
+fix_bin_permissions
+sucess
