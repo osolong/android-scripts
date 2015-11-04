@@ -11,8 +11,19 @@ Version: 0.2
   - Create udev rules to conenct an android device.
   - Download the latest repo tool
   - Install a TFTP server
-  - Install the requirements for building android:
+  - Install the requirements for building android.
 
+Instructions
+	On a brand new Ubuntu 14.04 installation run the following commands
+```
+sudo apt-get install git-core
+cd; mkdir -p bin; cd bin
+wget https://raw.githubusercontent.com/osolong/android-scripts/master/cfgandroid
+chmod +x cfgandroid
+sudo ./cfgandroid
+```
+
+Packages to be installed:
 	pkgs="git-core \
 		gnupg 	\
 		flex 	\
