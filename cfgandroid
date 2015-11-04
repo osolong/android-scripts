@@ -278,23 +278,6 @@ gitconfig_check () {
 setup_tools () {
 	#erase all repo commands.
 	eval "`whereis repo | sed -e 's/repo:/sudo rm -rf/g'`"
-
-	need_path=0
-	for i in ${HOME}/bin /sbin /usr/sbin
-	do
-		if [ -z "`cat ${HOME}/.bashrc | grep "PATH" | grep "${i}"`" ]; then
-			let "need_path+=1"
-		fi
-	done
-	if [ ${need_path} -ne 0 ]; then
-		cat ${HOME}/.bashrc | sed -e 's/export PATH.*//g' > ${HOME}/.bashrc.tmp
-		mv ${HOME}/.bashrc.tmp ${HOME}/.bashrc
-		echo "export PATH=\"$PATH:${HOME}/bin:/sbin:/usr/sbin\"" >> ${HOME}/.bashrc
-		export PATH=${PATH}:${HOME}/bin:/sbin:/usr/sbin
-		if [[ $debug -ne 0 && debug_verbosity -ne 0 ]]; then
-			cat ${HOME}/.bashrc | sed -e 's/^/\t/g'
-		fi
-	fi
 }
 
 ssh_keys_check () {
