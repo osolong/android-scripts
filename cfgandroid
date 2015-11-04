@@ -3,12 +3,11 @@
 # Copyright 2015
 # Rafael Rodriguez.
 #
-# Make sure android sdk and repo links below are up to date before running this script
+# Make sure repo link below are up to date before running this script
 #
 # Configures an ubuntu host PC. Will perform the following actions:
 #  - Setup Git
 #  - Create ssh RSA key
-#  - Install Android SDK tools
 #  - Create udev rules to conenct an android device.
 #  - Download the latest repo tool
 #  - Install a TFTP server
@@ -63,11 +62,13 @@
 		vim-gui-common \
 		vim-runtime \
 		exuberant-ctags \
-		cscope "
+		cscope \
+		android-tools-adb \
+		android-tools-fastboot \
+		android-tools-fsutils"
 
    java_pkgs="oracle-java6-installer openjdk-7-jdk"
 
-latest_android_sdk=http://dl.google.com/android/android-sdk_r24.4.1-linux.tgz
 linkrepo=https://storage.googleapis.com/git-repo-downloads/repo
 var=""
 libpath=""
@@ -350,58 +351,6 @@ install_android_tools_requirements () {
 	#update-java-alternatives --set java-6-sun > /dev/null 2>&1
 	#update-alternatives --set java /usr/lib/jvm/java-6-sun/jre/bin/java > /dev/null 2>&1
 
-	# Download the Android SDK.
-	cd ${HOME}
-	mkdir -p ${HOME}/bin
-	if [ ! -e ${HOME}/bin/android-sdk-linux ]; then
-		wget $latest_android_sdk -O android-sdk.tgz
-		if [ $? -ne 0 ]; then
-			echo "ERROR: Unable to download android-sdk_r20.0.3-linux"
-			exit 3
-		else
-			cd ${HOME}/bin
-			tar -zxf ${HOME}/android-sdk.tgz
-			if [ $? -ne 0 ]; then
-				echo "ERROR: Unable to extract android-sdk.tgz"
-				exit 4
-			else
-				#Only install tool and platform-tool
-				./android-sdk-linux/tools/android update sdk --no-ui --filter tool,platform-tool
-				for i in `ls android-sdk-linux/tools/`
-				do
-					if [ -x android-sdk-linux/tools/${i} ]; then
-						if [ -e ${i} ]; then
-							unlink ${i}
-						fi
-						if [[ "${i}" != *emulator* ]]; then
-							ln -s android-sdk-linux/tools/${i} ${i}
-							if [ $? -ne 0 ]; then
-								echo "ERROR: Unable to link to android-sdk-linux/tools/${i}"
-								exit 5
-							fi
-						fi
-					fi
-				done
-				for i in `ls android-sdk-linux/platform-tools/`
-				do
-					if [ -x android-sdk-linux/platform-tools/${i} ]; then
-						if [ -e ${i} ]; then
-							unlink ${i}
-						fi
-						if [[ "${i}" != *emulator* ]]; then
-							ln -s android-sdk-linux/platform-tools/${i} ${i}
-							if [ $? -ne 0 ]; then
-								echo "ERROR: Unable to link to android-sdk-linux/platform-tools/${i}"
-								exit 5
-							fi
-						fi
-					fi
-				done
-			fi
-			rm ${HOME}/android-sdk.tgz
-		fi
-	fi
-
 	# Configure the TFTP server
 	cat /etc/default/tftpd-hpa | sed -e 's/no/yes/g' -e 's+/var/lib/tftpboot+/tftproot+g' > /etc/default/tftpd-hpa.n
 	mv /etc/default/tftpd-hpa.n /etc/default/tftpd-hpa
@@ -466,7 +415,6 @@ success() {
 	echo " Environment Setup Successful"
 	echo ""
 	echo " The required packages to build Android have been installed"
-	echo " SDK Tools have been copied to ${HOME}/bin"
 	if [ ${sshkeygen} -ne 0 ]; then
 		echo " A new SSH key was generated in ${HOME}/.ssh/id_rsa.pub"
 	fi

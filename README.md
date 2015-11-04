@@ -5,12 +5,11 @@ Ubuntu Configuration Script to setup Android Development Environment
 0.2
 
 ##Description
-Make sure android sdk and repo links are up to date before running this script
+Make sure and repo links are up to date before running this script
 
 Configures an ubuntu host PC. Will perform the following actions:
   - Setup Git
   - Create ssh RSA key
-  - Install Android SDK tools
   - Create udev rules to conenct an android device.
   - Download the latest repo tool
   - Install a TFTP server
@@ -76,7 +75,10 @@ sudo ./cfgandroid
 		vim-runtime \
 		exuberant-ctags \
 		cscope \
-      oracle-java6-installer \
-      openjdk-7-jdk \
+		android-tools-adb \
+		android-tools-fastboot \
+		android-tools-fsutils \
+		oracle-java6-installer \
+		openjdk-7-jdk \
 		"
 ```
