@@ -35,8 +35,8 @@
 		libxml2-utils \
 		xsltproc \
 		zlib1g-dev:i386 \
-      oracle-java6-installer \
-      openjdk-7-jdk \
+		oracle-java6-installer \
+		openjdk-7-jdk \
 		cramfsprogs \
 		squashfs-tools \
 		eclipse \
@@ -48,9 +48,9 @@
 		netpbm \
 		tofrodos \
 		gawk \
-      chrpath \
-      quilt \
-      dpkg-dev \
+		chrpath \
+		quilt \
+		dpkg-dev \
 		debhelper \
 		autoconf \
 		libtool \
@@ -66,8 +66,6 @@
 		android-tools-adb \
 		android-tools-fastboot \
 		android-tools-fsutils"
-
-   java_pkgs="oracle-java6-installer openjdk-7-jdk"
 
 linkrepo=https://storage.googleapis.com/git-repo-downloads/repo
 var=""
@@ -332,10 +330,10 @@ install_android_tools_requirements () {
 	esac
 
 	# Prevent prompt for sun license
-	for i in ${java_pkgs}
-	do
-		echo sun-${i} shared/accepted-sun-dlj-v1-1 select true | /usr/bin/debconf-set-selections
-	done
+	echo debconf shared/accepted-oracle-license-v1-1 select true | \
+	sudo debconf-set-selections
+	echo debconf shared/accepted-oracle-license-v1-1 seen true | \
+  	sudo debconf-set-selections
 
 	for i in $pkgs
 	do
