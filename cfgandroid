@@ -65,7 +65,15 @@
 		cscope \
 		android-tools-adb \
 		android-tools-fastboot \
-		android-tools-fsutils"
+		android-tools-fsutils \
+		gcc-4.4 \
+		gcc-4.4-multilib \
+		g++-4.4 \
+		g++-4.4-multilib \
+		gcc-4.8 \
+		gcc-4.8-multilib \
+		g++-4.8 \
+		g++-4.8-multilib"
 
 linkrepo=https://storage.googleapis.com/git-repo-downloads/repo
 var=""
@@ -346,8 +354,12 @@ install_android_tools_requirements () {
    sudo apt-get -y autoremove
 
 	# Force javac from 1.6.0
-	#update-java-alternatives --set java-6-sun > /dev/null 2>&1
-	#update-alternatives --set java /usr/lib/jvm/java-6-sun/jre/bin/java > /dev/null 2>&1
+	#update-java-alternatives --set java-6-oracle > /dev/null 2>&1
+	#update-alternatives --set java /usr/lib/jvm/java-6-oracle/jre/bin/java > /dev/null 2>&1
+	# Force gcc and g++ version. 4.8 Default.
+	update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.8 60 --slave /usr/bin/g++ g++ /usr/bin/g++-4.8
+	update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.4 40 --slave /usr/bin/g++ g++ /usr/bin/g++-4.4
+	update-alternatives --set gcc /usr/bin/gcc-4.8
 
 	# Configure the TFTP server
 	cat /etc/default/tftpd-hpa | sed -e 's/no/yes/g' -e 's+/var/lib/tftpboot+/tftproot+g' > /etc/default/tftpd-hpa.n
