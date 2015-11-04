@@ -280,15 +280,6 @@ setup_tools () {
 	eval "`whereis repo | sed -e 's/repo:/sudo rm -rf/g'`"
 }
 
-ssh_keys_check () {
-	if [ ! -e "${HOME}/.ssh/id_rsa.pub" ]; then
-		ssh-keygen -t rsa -C "${email}" -f "${HOME}/.ssh/id_rsa" -N ""
-		if [ $? -eq 0 ]; then
-			let "sshkeygen+=1"
-		fi
-	fi
-}
-
 update_repo () {
 
    cd ${HOME}/bin
@@ -448,6 +439,7 @@ increase_max_fds () {
 
 ssh_keys_check () {
 	if [ ! -e "${HOME}/.ssh/id_rsa.pub" ]; then
+		mkdir -p ${HOME}/.ssh
 		ssh-keygen -t rsa -b 4096 -C "${email}" -f "${HOME}/.ssh/id_rsa" -N ""
 		if [ $? -eq 0 ]; then
 			let "sshkeygen+=1"
@@ -455,6 +447,7 @@ ssh_keys_check () {
    else
       if [ -z "`grep "${email}" "${HOME}/.ssh/id_rsa.pub"`" ]; then
          echo "ssh key with invalid email address. Re-generating ssh:"
+		 mkdir -p ${HOME}/.ssh
          rm "${HOME}/.ssh/id_rsa"
 		   ssh-keygen -t rsa -b 4096 -C "${email}" -f "${HOME}/.ssh/id_rsa" -N ""
 		   if [ $? -eq 0 ]; then
@@ -549,5 +542,4 @@ increase_max_fds
 setup_tools
 update_repo
 fix_bin_permissions
-ssh_keys_check
 success
