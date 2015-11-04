@@ -1,10 +1,9 @@
-Developer: Osolong
+##Developer: Osolong
+##Version: 0.2
 
-Version: 0.2
+Make sure android sdk and repo links below are up to date before running this script
 
- Make sure android sdk and repo links below are up to date before running this script
-
- Configures an ubuntu host PC. Will perform the following actions:
+Configures an ubuntu host PC. Will perform the following actions:
   - Setup Git
   - Create ssh RSA key
   - Install Android SDK tools
@@ -13,7 +12,8 @@ Version: 0.2
   - Install a TFTP server
   - Install the requirements for building android.
 
-Instructions
+##Instructions
+
 	On a brand new Ubuntu 14.04 installation run the following commands
 ```
 sudo apt-get install git-core
@@ -23,7 +23,8 @@ chmod +x cfgandroid
 sudo ./cfgandroid
 ```
 
-Packages to be installed:
+##Packages to be installed:
+```
 	pkgs="git-core \
 		gnupg 	\
 		flex 	\
@@ -74,3 +75,4 @@ Packages to be installed:
       oracle-java6-installer \
       openjdk-7-jdk \
 		"
+```
