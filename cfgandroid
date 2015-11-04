@@ -375,7 +375,7 @@ install_android_tools_requirements () {
 				exit 4
 			else
 				#Only install tool and platform-tool
-				yes | ./android-sdk-linux/tools/android update sdk --no-ui --filter tool,platform-tool
+				./android-sdk-linux/tools/android update sdk --no-ui --filter tool,platform-tool
 				for i in `ls android-sdk-linux/tools/`
 				do
 					if [ -x android-sdk-linux/tools/${i} ]; then
