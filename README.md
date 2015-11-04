@@ -1,5 +1,65 @@
 Developer: Osolong
 
-Version: 0.1
+Version: 0.2
 
-This repository will contain helper scripts to automate the setup of an Android Platform Development Environment.
+ Make sure android sdk and repo links below are up to date before running this script
+
+ Configures an ubuntu host PC. Will perform the following actions:
+  - Setup Git
+  - Create ssh RSA key
+  - Install Android SDK tools
+  - Create udev rules to conenct an android device.
+  - Download the latest repo tool
+  - Install a TFTP server
+  - Install the requirements for building android:
+
+	pkgs="git-core \
+		gnupg 	\
+		flex 	\
+		bison 	\
+		gperf 	\
+		build-essential \
+		zip 	\
+		curl 	\
+		libc6-dev \
+		libncurses5-dev:i386 \
+		x11proto-core-dev \
+		libx11-dev:i386 \
+		libreadline6-dev:i386 \
+		libgl1-mesa-dev \
+		g++-multilib \
+		mingw32 \
+		tofrodos \
+		python-markdown \
+		libxml2-utils \
+		xsltproc \
+		zlib1g-dev:i386 \
+		cramfsprogs \
+		squashfs-tools \
+		eclipse \
+		u-boot-tools \
+		gitk \
+		tftp-hpa \
+		indent \
+		multistrap \
+		netpbm \
+		tofrodos \
+		gawk \
+      chrpath \
+      quilt \
+      dpkg-dev \
+		debhelper \
+		autoconf \
+		libtool \
+		mercurial \
+		intltool \
+		vim \
+		vim-common \
+		vim-gnome \
+		vim-gui-common \
+		vim-runtime \
+		exuberant-ctags \
+		cscope \
+      oracle-java6-installer \
+      openjdk-7-jdk \
+		"

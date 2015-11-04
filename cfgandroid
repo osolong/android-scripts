@@ -1,20 +1,121 @@
 #!/bin/bash
 #
-# Copyright 2012 Dextra Technologies.
+# Copyright 2015
 # Rafael Rodriguez.
 #
-# Configures a host PC. Will install the required packages
-# to build android.
+# Make sure android sdk and repo links below are up to date before running this script
 #
-# If you are building on ubuntu 12.04, patch android first, as per
-# the instructions at http://XXX
+# Configures an ubuntu host PC. Will perform the following actions:
+#  - Setup Git
+#  - Create ssh RSA key
+#  - Install Android SDK tools
+#  - Create udev rules to conenct an android device.
+#  - Download the latest repo tool
+#  - Install a TFTP server
+#  - Install the requirements for building android (below packages)
 #
-# After the script is completed, run fetch_sources.sh to download the code.
+#
+	pkgs="git-core \
+		gnupg 	\
+		flex 	\
+		bison 	\
+		gperf 	\
+		build-essential \
+		zip 	\
+		curl 	\
+		libc6-dev \
+		libncurses5-dev:i386 \
+		x11proto-core-dev \
+		libx11-dev:i386 \
+		libreadline6-dev:i386 \
+		libgl1-mesa-dev \
+		g++-multilib \
+		mingw32 \
+		tofrodos \
+		python-markdown \
+		libxml2-utils \
+		xsltproc \
+		zlib1g-dev:i386 \
+      oracle-java6-installer \
+      openjdk-7-jdk \
+		cramfsprogs \
+		squashfs-tools \
+		eclipse \
+		u-boot-tools \
+		gitk \
+		tftp-hpa \
+		indent \
+		multistrap \
+		netpbm \
+		tofrodos \
+		gawk \
+      chrpath \
+      quilt \
+      dpkg-dev \
+		debhelper \
+		autoconf \
+		libtool \
+		mercurial \
+		intltool \
+		vim \
+		vim-common \
+		vim-gnome \
+		vim-gui-common \
+		vim-runtime \
+		exuberant-ctags \
+		cscope "
 
-latest_android_sdk=http://dl.google.com/android/android-sdk_r20.0.3-linux.tgz
-linkrepo=https://dl-ssl.google.com/dl/googlesource/git-repo/repo
+   java_pkgs="oracle-java6-installer openjdk-7-jdk"
+
+latest_android_sdk=http://dl.google.com/android/android-sdk_r24.4.1-linux.tgz
+linkrepo=https://storage.googleapis.com/git-repo-downloads/repo
 var=""
 libpath=""
+
+version=20151103
+email=""
+user=""
+compare=""
+script_name="`basename $0`"
+script="$0"
+root_dir="$PWD"
+sshkeygen=0
+
+# sample ${osolongcfg}
+#  user="Rafael Rodriguez"
+#  email="rafaelrdzc@gmail.com"
+#  compare=bc3
+#
+osolongcfg="${HOME}/.osolongcfg"
+
+# sample ${gitcfg}
+#  [user]
+#	   email = rafaelrdzc@gmail.com
+#	   name = Rafael Rodriguez
+#  [color]
+#	   ui = auto
+#	   diff = auto
+#	   status = auto
+#	   branch = auto
+#	   interactive = auto
+#  [core]
+#     editor = vim
+#     filemode = false
+#  [alias]
+#	   changes=diff --name-status -r
+#  [diff]
+#     tool = bc3
+#	   renames = true
+#  [difftool]
+#     bc3 = trustExitCode
+#     prompt = false
+#  [merge]
+#     tool = bc3
+#  [mergetool]
+#     bc3 = trustExitCode
+#
+gitcfg="${HOME}/.gitconfig"
+
 
 check_if_sudo () {
 	if [ -z "`env | grep "SUDO"`" ]; then
@@ -38,11 +139,138 @@ check_version () {
 				echo "Error: This script can only be run on Ubuntu"
 				exit 1
 			else
-				if [[ "${var}" != "12.04" ]]; then
-					echo "Error: Only Ubuntu 12.04 is supported"
+				if [[ "${var}" != "14.04" ]]; then
+					echo "Error: Only Ubuntu 14.04 is supported"
 					exit 1
 				fi
 			fi
+		fi
+	fi
+}
+
+cfg_default  () {
+	if [ -z "${email_cmd}" ]; then
+		read -r -p "Please enter your email address: "
+		echo ""
+        email="`echo ${REPLY} | tr '[:upper:]' '[:lower:]'`"
+        if [[ ${email} =~ .*@.* ]]; then
+            echo "Valid email address."
+        else
+            echo "Error: Not a valid email address"
+			exit 1
+		fi
+	else
+		email="`echo ${email_cmd} | tr '[:upper:]' '[:lower:]'`"
+	fi
+
+	if [ -z "${user_cmd}" ]; then
+		read -r -p "Please enter your full name: "
+		echo ""
+		if [ -z "${REPLY}" ]; then
+			echo "Error: Not a valid name"
+			exit 1
+		else
+			user="`echo ${REPLY} | awk '{for(i=1;i<=NF;i++)sub(/./,toupper(substr($i,1,1)),$i)}1'`"
+		fi
+	else
+      user="`echo ${user_cmd} | awk '{for(i=1;i<=NF;i++)sub(/./,toupper(substr($i,1,1)),$i)}1'`"
+	fi
+
+	if [ -z "${compare_cmd}" ]; then
+		read -r -p "Please enter you preferred comparison and merge tool (bc3, meld) : "
+		echo ""
+		if [ -z "${REPLY}" ]; then
+			echo "Error: Not a valid name"
+			exit 1
+		else
+			compare="`echo ${REPLY} |  tr '[:upper:]' '[:lower:]'`"
+		fi
+	else
+      compare="`echo ${compare_cmd} | awk  tr '[:upper:]' '[:lower:]'`"
+	fi
+
+	# Now we should have user, email now
+	echo "user=\"${user}\"" > ${osolongcfg}
+	echo "email=\"${email}\"" >> ${osolongcfg}
+	echo "compare=\"${compare}\"" >> ${osolongcfg}
+	chmod +x ${osolongcfg}
+}
+
+cfg_setup () {
+	# Obtain the values from the ~/.osolongcfg file
+	# If file does not exist, call cfg_default
+	if [ -e ${osolongcfg} ]; then
+		source ${osolongcfg}
+		if [[ -n "${user_cmd}" || -n "${email_cmd}" || "${compare_cmd}" ]]; then
+			cfg_default
+		else
+			echo "Please verify that the following information is correct"
+			echo "   User        = ${user}"
+			echo "   Email       = ${email}"
+			echo "   Compare Tool= ${compare}"
+			echo ""
+			read -r -p "Is this correct? [y|n]: "
+			case $REPLY in
+				y)
+					set_cfg_target
+					;;
+				*)
+					echo "Resetting user information"
+					user=""
+					email=""
+					root=""
+					cfg_default
+					;;
+			esac
+		fi
+	else
+		cfg_default
+	fi
+}
+
+set_cfg_target () {
+
+	echo "user=\"${user}\"" > ${osolongcfg}
+	echo "email=\"${email}\"" >> ${osolongcfg}
+	echo "compare=\"${compare}\"" >> ${osolongcfg}
+}
+
+gitconfig_default () {
+	echo "[user]" > ${gitcfg}
+	echo -e "\temail = ${email}" >> ${gitcfg}
+	echo -e "\tname = ${user}" >> ${gitcfg}
+	echo "[color]" >> ${gitcfg}
+	echo -e "\tui = auto" >> ${gitcfg}
+	echo -e "\tdiff = auto" >> ${gitcfg}
+	echo -e "\tstatus = auto" >> ${gitcfg}
+	echo -e "\tbranch = auto" >> ${gitcfg}
+	echo -e "\tinteractive = auto" >> ${gitcfg}
+	echo "[core]" >> ${gitcfg}
+	echo -e "\teditor = vim" >> ${gitcfg}
+	echo -e "\tfilemode = false" >> ${gitcfg}
+	echo "[alias]" >> ${gitcfg}
+	echo -e "\tchanges=diff --name-status -r" >> ${gitcfg}
+	echo "[diff]" >> ${gitcfg}
+   echo -e "\ttool = ${compare}" >> ${gitcfg}
+	echo -e "\trenames = true" >> ${gitcfg}
+	echo "[difftool]" >> ${gitcfg}
+   echo -e "\t${compare} = trustExitCode" >> ${gitcfg}
+   echo -e "\tprompt = false" >> ${gitcfg}
+   echo "[merge]" >> ${gitcfg}
+   echo -e "\ttool = ${compare}" >> ${gitcfg}
+	echo "[mergetool]" >> ${gitcfg}
+   echo -e "\t${compare} = trustExitCode" >> ${gitcfg}
+   echo -e "\tprompt = false" >> ${gitcfg}
+}
+
+gitconfig_check () {
+	if [ ! -e "${gitcfg}" ]; then
+		gitconfig_default
+	else
+		# Verify that the .gitconfig contains the username and email
+		cfg="`cat ${gitcfg}`"
+		if [[ -z "`grep "${user}" ${gitcfg}`" || -z "`grep "${email}" ${gitcfg}`" || -z "`grep "${compare}" ${gitcfg}`" ]]; then
+			gitconfig_default
 		fi
 	fi
 }
@@ -69,11 +297,20 @@ setup_tools () {
 	fi
 }
 
+ssh_keys_check () {
+	if [ ! -e "${HOME}/.ssh/id_rsa.pub" ]; then
+		ssh-keygen -t rsa -C "${email}" -f "${HOME}/.ssh/id_rsa" -N ""
+		if [ $? -eq 0 ]; then
+			let "sshkeygen+=1"
+		fi
+	fi
+}
+
 update_repo () {
 
-	cd ${HOME}/bin
-    curl ${linkrepo} > ~/bin/repo
-    chmod a+x ${HOME}/bin/repo
+   cd ${HOME}/bin
+   curl ${linkrepo} > ~/bin/repo
+   chmod a+x ${HOME}/bin/repo
 }
 
 update_udev_rules () {
@@ -103,66 +340,10 @@ reconfigure_sudo () {
 
 install_android_tools_requirements () {
 	# Configure the sources.list:
-	if [ -z "`cat /etc/apt/sources.list | grep "hardy multiverse"`" ]; then
-		echo "" >> /etc/apt/sources.list
-		echo "deb http://us.archive.ubuntu.com/ubuntu/ hardy multiverse" >> /etc/apt/sources.list
+	if [ -z "`grep ^ /etc/apt/sources.list /etc/apt/sources.list.d/* | grep java`" ]; then
+		sudo add-apt-repository ppa:webupd8team/java
 		apt-get update
 	fi
-
-	# Install the requirements for building android
-	pkgs="git-core \
-		gnupg 	\
-		flex 	\
-		bison 	\
-		gperf 	\
-		build-essential \
-		zip 	\
-		curl 	\
-		libc6-dev \
-		libncurses5-dev:i386 \
-		x11proto-core-dev \
-		libx11-dev:i386 \
-		libreadline6-dev:i386 \
-		libgl1-mesa-glx:i386 \
-  		libgl1-mesa-dev \
-		g++-multilib \
-		mingw32 \
-		openjdk-6-jdk \
-		tofrodos \
-		python-markdown \
-		libxml2-utils \
-		xsltproc \
-		zlib1g-dev:i386 \
-		sun-java6-jdk \
-		sun-java6-jre \
-		sun-java5-jdk \
-		sun-java5-jre \
-		cramfsprogs \
-		squashfs-tools \
-		eclipse \
-		uboot-mkimage \
-		gitk \
-		tftp-hpa \
-		indent \
-		multistrap \
-		netpbm \
-		tofrodos \
-		gawk \
-        chrpath \
-        quilt \
-        dpkg-dev \
-		debhelper \
-		autoconf \
-		libtool \
-		mercurial \
-		intltool \
-		vim \
-		vim-common \
-		vim-gnome \
-		vim-gui-common \
-		vim-runtime \
-		exuberant-ctags \
-		cscope "
 
 	mach="`uname -m`"
 	case $mach in
@@ -176,7 +357,7 @@ install_android_tools_requirements () {
 	esac
 
 	# Prevent prompt for sun license
-	for i in java5-jre java5-jdk java6-jre java6-jdk
+	for i in ${java_pkgs}
 	do
 		echo sun-${i} shared/accepted-sun-dlj-v1-1 select true | /usr/bin/debconf-set-selections
 	done
@@ -189,16 +370,15 @@ install_android_tools_requirements () {
 			exit 2
 		fi
 	done
+   sudo apt-get -y autoremove
 
 	# Force javac from 1.6.0
-	update-java-alternatives --set java-6-sun > /dev/null 2>&1
-	update-alternatives --set java /usr/lib/jvm/java-6-sun/jre/bin/java > /dev/null 2>&1
+	#update-java-alternatives --set java-6-sun > /dev/null 2>&1
+	#update-alternatives --set java /usr/lib/jvm/java-6-sun/jre/bin/java > /dev/null 2>&1
 
 	# Download the Android SDK.
 	cd ${HOME}
-	if [ ! -e $HOME}/bin ]; then
-		mkdir -p ${HOME}/bin
-	fi
+	mkdir -p ${HOME}/bin
 	if [ ! -e ${HOME}/bin/android-sdk-linux ]; then
 		wget $latest_android_sdk -O android-sdk.tgz
 		if [ $? -ne 0 ]; then
@@ -212,7 +392,7 @@ install_android_tools_requirements () {
 				exit 4
 			else
 				#Only install tool and platform-tool
-				./android-sdk-linux/tools/android update sdk --no-ui --filter tool,platform-tool
+				yes | ./android-sdk-linux/tools/android update sdk --no-ui --filter tool,platform-tool
 				for i in `ls android-sdk-linux/tools/`
 				do
 					if [ -x android-sdk-linux/tools/${i} ]; then
@@ -254,7 +434,7 @@ install_android_tools_requirements () {
 
 	# x86_64 also requires additional workarounds
 	# Different path for ubuntu 12.04
-	if [ "${var}" == "12.04" ]; then
+	if [ "${var}" == "14.04" ] || [ "${var}" == "12.04" ]; then
 		libpath=/usr/lib/i386-linux-gnu
 	else
 		libpath=/usr/lib32
@@ -263,15 +443,17 @@ install_android_tools_requirements () {
 		if [ ! -e /usr/lib/i386-linux-gnu/libX11.so ]; then
 			ln -s ${libpath}/libX11.so.6 ${libpath}/libX11.so
 		fi
-		if [ ! -e /usr/lib/i386-linux-gnu/libGL.so ]; then
-			ln -s ${libpath}/mesa/libGL.so.1 ${libpath}/libGL.so
-		fi
-		ln -s /usr/lib/jni/libswt-* ~/.swt/lib/linux/x86_64/
+      # Check if needed on Ubuntu 14.04
+		#if [ ! -e /usr/lib/i386-linux-gnu/libGL.so ]; then
+		#	ln -s ${libpath}/mesa/libGL.so.1 ${libpath}/libGL.so
+		#fi
+	   #ln -s /usr/lib/jni/libswt-* ~/.swt/lib/linux/x86_64/
 	fi
 }
 
 fix_bin_permissions () {
-        chown -R ${SUDO_USER}:${SUDO_USER} ${HOME}/bin
+   source ~/.profile
+   chown -R ${SUDO_USER}:${SUDO_USER} ${HOME}/bin
 }
 
 increase_max_fds () {
@@ -281,23 +463,108 @@ increase_max_fds () {
 	sysctl -p /etc/sysctl.conf
 }
 
-sucess() {
+ssh_keys_check () {
+	if [ ! -e "${HOME}/.ssh/id_rsa.pub" ]; then
+		ssh-keygen -t rsa -b 4096 -C "${email}" -f "${HOME}/.ssh/id_rsa" -N ""
+		if [ $? -eq 0 ]; then
+			let "sshkeygen+=1"
+		fi
+   else
+      if [ -z "`grep "${email}" "${HOME}/.ssh/id_rsa.pub"`" ]; then
+         echo "ssh key with invalid email address. Re-generating ssh:"
+         rm "${HOME}/.ssh/id_rsa"
+		   ssh-keygen -t rsa -b 4096 -C "${email}" -f "${HOME}/.ssh/id_rsa" -N ""
+		   if [ $? -eq 0 ]; then
+			   let "sshkeygen+=1"
+		   fi
+      fi
+	fi
+}
+
+version () {
+	echo "${script_name} version ${version}"
+	exit 0
+}
+
+success() {
 	echo "========================================================"
 	echo " Environment Setup Successful"
 	echo ""
 	echo " The required packages to build Android have been installed"
 	echo " SDK Tools have been copied to ${HOME}/bin"
+	if [ ${sshkeygen} -ne 0 ]; then
+		echo " A new SSH key was generated in ${HOME}/.ssh/id_rsa.pub"
+	fi
 	echo ""
 	echo "========================================================"
 }
 
+usage () {
+	echo "${script_name} version ${version}"
+	echo ""
+	for i in ${longopts}
+	do
+		case "${i}" in
+			"user:")
+				echo "  --user <arg>"
+				echo "    The full name of the Github user"
+				;;
+			"email:")
+				echo "  --email <arg>"
+				echo "    The email address of the github user"
+				;;
+			"version")
+				echo "  --version"
+				echo "    Print version and exit"
+				;;
+			"help")
+				echo "  --help"
+				echo "    Print this message and exit"
+				;;
+			*)
+				echo "unknown option ${i}"
+				;;
+		esac
+	done
+	echo ""
+	echo "Quickstart:"
+	echo ""
+	echo "  To setup the PC to build android, do the following"
+	echo "    sudo ./cfgandroid --user <Github user> --email <github email> "
+	echo ""
+	exit 0
+}
+
+set -- `getopt -n$0 -u -a -q --longoptions="$longopts " "h" "$@"` || usage
+# [ $# -eq 1 ] && usage
+
+while [ $# -gt 0 ]
+do
+	if [ "$1" == "--" ]; then
+		shift
+		continue
+	fi
+	case "$1" in
+		--user)	shift; user_cmd="`echo ${@} | sed -e 's/--.*//g' -e 's/ $//g'`";;
+		--email)	shift; email_cmd="`echo ${@} | sed -e 's/--.*//g' -e 's/ $//g'`";;
+		--version)	version;;
+		--help)		usage;;
+		*)		shift; continue;;
+	esac
+	shift
+done
+
 check_if_sudo
 check_version
 reconfigure_sudo
+cfg_setup
+gitconfig_check
+ssh_keys_check
 install_android_tools_requirements
 update_udev_rules
 increase_max_fds
 setup_tools
 update_repo
 fix_bin_permissions
-sucess
+ssh_keys_check
+success
