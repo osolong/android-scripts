@@ -447,7 +447,6 @@ ssh_keys_check () {
    else
       if [ -z "`grep "${email}" "${HOME}/.ssh/id_rsa.pub"`" ]; then
          echo "ssh key with invalid email address. Re-generating ssh:"
-		 mkdir -p ${HOME}/.ssh
          rm "${HOME}/.ssh/id_rsa"
 		   ssh-keygen -t rsa -b 4096 -C "${email}" -f "${HOME}/.ssh/id_rsa" -N ""
 		   if [ $? -eq 0 ]; then
