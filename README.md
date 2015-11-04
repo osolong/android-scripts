@@ -1,7 +1,11 @@
-##Developer: Osolong
-##Version: 0.2
+#cfgandroid
+Ubuntu Configuration Script to setup Android Development Environment
 
-Make sure android sdk and repo links below are up to date before running this script
+##Version
+0.2
+
+##Description
+Make sure android sdk and repo links are up to date before running this script
 
 Configures an ubuntu host PC. Will perform the following actions:
   - Setup Git
@@ -13,8 +17,7 @@ Configures an ubuntu host PC. Will perform the following actions:
   - Install the requirements for building android.
 
 ##Instructions
-
-	On a brand new Ubuntu 14.04 installation run the following commands
+On a brand new Ubuntu 14.04 installation run the following commands
 ```
 sudo apt-get install git-core
 cd; mkdir -p bin; cd bin
@@ -25,7 +28,8 @@ sudo ./cfgandroid
 
 ##Packages to be installed:
 ```
-	pkgs="git-core \
+	pkgs="
+		git-core \
 		gnupg 	\
 		flex 	\
 		bison 	\
@@ -57,9 +61,9 @@ sudo ./cfgandroid
 		netpbm \
 		tofrodos \
 		gawk \
-      chrpath \
-      quilt \
-      dpkg-dev \
+		chrpath \
+		quilt \
+		dpkg-dev \
 		debhelper \
 		autoconf \
 		libtool \
